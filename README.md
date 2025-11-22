@@ -1,1 +1,0 @@
-# ekiden.map
