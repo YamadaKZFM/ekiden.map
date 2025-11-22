@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>箱根駅伝コースガイド</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* ピンの波紋アニメーション */
+      @keyframes ping-slow {
+        75%, 100% {
+          transform: scale(2);
+          opacity: 0;
+        }
+      }
+      .animate-ping-slow {
+        animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+      }
+      
+      /* モーダルアニメーション */
+      .modal-enter { opacity: 0; transform: scale(0.95); }
+      .modal-enter-active { opacity: 1; transform: scale(1); transition: opacity 300ms ease-out, transform 300ms ease-out; }
+      .modal-exit { opacity: 1; transform: scale(1); }
+      .modal-exit-active { opacity: 0; transform: scale(0.95); transition: opacity 200ms ease-in, transform 200ms ease-in; }
+
+      /* マップ画像の選択不可設定 */
+      .no-select {
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+    </style>
+</head>
+  <body class="bg-gray-100 text-gray-900 font-sans antialiased">
+    
+    <!-- Header -->
+    <header class="bg-red-700 shadow-md sticky top-0 z-50">
+      <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="bg-white p-1.5 rounded text-red-700 font-bold">
+            <!-- Flag Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+          </div>
+          <h1 class="text-xl font-bold text-white">駅伝コースガイド</h1>
+        </div>
+        <button class="text-xs sm:text-sm bg-white text-red-700 px-4 py-2 rounded-full font-bold hover:bg-red-50 transition shadow-sm">
+          コース詳細PDF
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-2 py-6 sm:p-6 flex justify-center">
+      <div class="bg-white rounded-xl shadow-xl overflow-hidden w-full max-w-5xl border border-gray-200">
+        
+        <!-- Title Area -->
+        <div class="p-4 border-b border-gray-100 bg-gray-50">
+          <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <span class="w-2 h-6 bg-red-600 rounded-sm inline-block"></span>
+            往路・区間エントリーマップ
+          </h2>
+          <p class="text-sm text-gray-500 mt-1 ml-4">
+            地図上のピンをクリックすると、各地点の区間情報や見どころが表示されます。
+          </p>
+        </div>
+
+        <!-- Map Area -->
+        <div class="relative w-full bg-slate-100 group">
+          
+          <!-- 地図画像 -->
+          <!-- 
+               注意: map.jpg が index.html と同じフォルダにある必要があります。
+               画像がない場合はグレーの背景が表示されます。
+          -->
+          <img 
+            src="./map.jpg" 
+            alt="駅伝マップ" 
+            onerror="this.style.display='none'; document.getElementById('img-placeholder').style.display='flex';"
+            class="w-full h-auto block no-select"
+          />
+          
+          <!-- 画像読み込みエラー時のプレースホルダー -->
+          <div id="img-placeholder" class="hidden w-full h-96 bg-gray-200 flex-col items-center justify-center text-gray-500">
+            <p class="font-bold text-lg">マップ画像が見つかりません</p>
+            <p class="text-sm">フォルダ内に "map.jpg" を配置してください。</p>
+          </div>
+
+          <!-- ピンのコンテナ -->
+          <div id="pins-layer" class="absolute inset-0 w-full h-full">
+            <!-- JSでここにピンが生成されます -->
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-500 text-sm py-6 border-t border-gray-200 mt-8">
+      &copy; 2024 Hakone Ekiden Guide - Interactive Map
+    </footer>
+
+    <!-- Modal Overlay -->
+    <div id="modal-backdrop" class="fixed inset-0 z-[100] flex items-center justify-center p-4 hidden">
+      <!-- 背景クリックで閉じる -->
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+      
+      <!-- モーダル本体 -->
+      <div id="modal-content" class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all">
+        
+        <!-- 閉じるボタン -->
+        <button onclick="closeModal()" class="absolute top-3 right-3 z-10 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full backdrop-blur transition border border-white/20">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+
+        <!-- ヘッダー画像 -->
+        <div class="h-48 sm:h-56 bg-gray-200 relative">
+          <img id="modal-image" src="" alt="" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+          <div class="absolute bottom-0 left-0 w-full p-5 text-white">
+            <span id="modal-tag" class="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-2 inline-block border border-white/20">
+              Check Point
+            </span>
+            <h3 id="modal-title" class="text-2xl font-bold leading-tight drop-shadow-md">Title</h3>
+          </div>
+        </div>
+
+        <!-- 本文 -->
+        <div class="p-6 bg-white">
+          <div class="flex items-start gap-3 mb-4">
+            <div class="mt-1 min-w-[20px] text-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            </div>
+            <p id="modal-desc" class="text-gray-700 leading-relaxed text-sm sm:text-base">
+              Description goes here.
+            </p>
+          </div>
+          
+          <div class="mt-6 pt-4 border-t border-gray-100 text-right">
+            <button onclick="closeModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-2.5 px-8 rounded-lg text-sm transition">
+              閉じる
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ==========================================
+      // 📍 ピンのデータ定義
+      // ==========================================
+      const PINS = [
+        {
+          // 右上：スタート（大手町）
+          top: 10, 
+          left: 78, 
+          title: 'スタート：大手町',
+          tag: 'START',
+          image: 'https://images.unsplash.com/photo-1558350277-f0c8019c4a21?auto=format&fit=crop&q=80&w=600',
+          description: '【往路スタート】読売新聞社前。1月2日午前8時00分、一斉にスタートの号砲が鳴り響きます。'
+        },
+        {
+          // 中央右寄り：鶴見中継所
+          top: 38, 
+          left: 62, 
+          title: '1区→2区：鶴見中継所',
+          tag: '1区 → 2区',
+          image: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&q=80&w=600',
+          description: 'スピードランナーが集う1区から、各校のエースが待つ「花の2区」へのタスキリレー。繰り上げスタートのドラマも生まれる場所です。'
+        },
+        {
+          // 中央：戸塚中継所
+          top: 56, 
+          left: 48, 
+          title: '2区→3区：戸塚中継所',
+          tag: '2区 → 3区',
+          image: 'https://images.unsplash.com/photo-1535132018013-5431d3972707?auto=format&fit=crop&q=80&w=600',
+          description: '権太坂を越えた先にある中継所。エース区間の激走を終えた選手たちが、湘南を目指す3区へタスキをつなぎます。'
+        },
+        {
+          // 下中央：平塚中継所
+          top: 78, 
+          left: 42, 
+          title: '3区→4区：平塚中継所',
+          tag: '3区 → 4区',
+          image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600',
+          description: '湘南の海沿いを駆け抜けた後の第3中継所。海風と日差しの影響を受けやすいポイントです。'
+        },
+        {
+          // 左下：小田原中継所
+          top: 72, 
+          left: 22, 
+          title: '4区→5区：小田原中継所',
+          tag: '4区 → 5区',
+          image: 'https://images.unsplash.com/photo-1519115967240-914b4490849e?auto=format&fit=crop&q=80&w=600',
+          description: '往路最後の中継所。ここから標高差800m以上を駆け上がる「山上り」のスペシャリストへタスキが託されます。'
+        },
+        {
+          // 左下奥：フィニッシュ（箱根）
+          top: 85, 
+          left: 12, 
+          title: '往路フィニッシュ：芦ノ湖',
+          tag: 'FINISH',
+          image: 'https://images.unsplash.com/photo-1528366220965-3091b15608f4?auto=format&fit=crop&q=80&w=600',
+          description: '【往路ゴール】過酷な山道を登りきった先、芦ノ湖畔のゴール地点。往路優勝の栄冠と、翌日の復路に向けたタイム差が決まります。'
+        }
+      ];
+
+      // ==========================================
+      // 🛠️ アプリケーションロジック
+      // ==========================================
+      
+      document.addEventListener('DOMContentLoaded', () => {
+        renderPins();
+      });
+
+      function renderPins() {
+        const layer = document.getElementById('pins-layer');
+        layer.innerHTML = '';
+
+        PINS.forEach((pin, index) => {
+          const el = document.createElement('div');
+          
+          // 配置スタイル
+          // translate(-50%, -100%) によって、座標(top/left)がピンの「先端（下）」に来るようにします。
+          el.className = 'absolute cursor-pointer group z-10 flex flex-col items-center';
+          el.style.top = pin.top + '%';
+          el.style.left = pin.left + '%';
+          el.style.transform = 'translate(-50%, -100%)'; // ピンの先端を座標に合わせる
+
+          // スタイル判定
+          const isStart = pin.tag === 'START';
+          const isFinish = pin.tag === 'FINISH';
+          const isSpecial = isStart || isFinish;
+
+          const mainColor = isSpecial ? 'bg-slate-900' : 'bg-red-600';
+          const hoverColor = isSpecial ? 'group-hover:bg-slate-800' : 'group-hover:bg-red-700';
+          const ringColor = isSpecial ? 'bg-slate-400' : 'bg-red-400';
+
+          // アイコンSVG
+          const flagIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 21h2v-6h11l-2.5-4L18 7H7V3H5v18z"/></svg>`;
+          
+          // HTML生成
+          // SVGでピンを描画し、先端が下に来るようにしています。
+          el.innerHTML = `
+            <!-- 波紋エフェクト -->
+            <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-12 ${ringColor} rounded-full animate-ping-slow opacity-50 pointer-events-none"></div>
+            
+            <!-- 吹き出し型ピン -->
+            <div class="relative transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-2 origin-bottom">
+              <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-lg border-2 border-white ${mainColor} ${hoverColor} text-white transition-colors">
+                ${isSpecial ? flagIcon : `<span class="font-bold text-sm sm:text-base font-mono">${index}</span>`}
+              </div>
+              <!-- ピンの三角形（しっぽ） -->
+              <div class="w-0 h-0 
+                          border-l-[8px] border-l-transparent 
+                          border-r-[8px] border-r-transparent 
+                          border-t-[10px] ${isSpecial ? 'border-t-slate-900' : 'border-t-red-600'}
+                          mx-auto drop-shadow-sm"></div>
+            </div>
+
+            <!-- ホバー時のツールチップ -->
+            <div class="absolute bottom-full mb-2 hidden group-hover:block whitespace-nowrap z-20">
+              <div class="bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded shadow-xl transform transition-all">
+                ${pin.title}
+                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          `;
+
+          // クリックイベント
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openModal(pin);
+          });
+
+          layer.appendChild(el);
+        });
+      }
+
+      function openModal(pin) {
+        const backdrop = document.getElementById('modal-backdrop');
+        const content = document.getElementById('modal-content');
+        const tagEl = document.getElementById('modal-tag');
+
+        // データセット
+        document.getElementById('modal-image').src = pin.image;
+        document.getElementById('modal-title').textContent = pin.title;
+        document.getElementById('modal-desc').textContent = pin.description;
+        tagEl.textContent = pin.tag;
+
+        // タグの色分け
+        if (pin.tag === 'START' || pin.tag === 'FINISH') {
+          tagEl.className = 'bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-2 inline-block border border-white/20';
+        } else {
+          tagEl.className = 'bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-2 inline-block border border-white/20';
+        }
+
+        // 表示アニメーション
+        backdrop.classList.remove('hidden');
+        content.classList.remove('modal-exit', 'modal-exit-active');
+        content.classList.add('modal-enter');
+        
+        // アニメーションフレームでクラス適用タイミングをずらす
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            content.classList.add('modal-enter-active');
+            content.classList.remove('modal-enter');
+          });
+        });
+      }
+
+      function closeModal() {
+        const backdrop = document.getElementById('modal-backdrop');
+        const content = document.getElementById('modal-content');
+
+        content.classList.add('modal-exit');
+        content.classList.remove('modal-enter-active');
+        
+        requestAnimationFrame(() => {
+          content.classList.add('modal-exit-active');
+          content.classList.remove('modal-exit');
+        });
+
+        // アニメーション終了後に非表示
+        setTimeout(() => {
+          backdrop.classList.add('hidden');
+        }, 200);
+      }
+    </script>
+  </body>
+</html>
