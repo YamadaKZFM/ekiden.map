@@ -28,7 +28,14 @@
         user-select: none;
         -webkit-user-drag: none;
       }
+
+      /* マップズームアニメーション */
+      .map-container {
+        transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: center center;
+      }
     </style>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-100 text-gray-900 font-sans antialiased">
     
@@ -63,30 +70,61 @@
           </p>
         </div>
 
-        <!-- Map Area -->
-        <div class="relative w-full bg-slate-100 group">
-          
-          <!-- 地図画像 -->
-          <!-- 
-               注意: map.jpg が index.html と同じフォルダにある必要があります。
-               画像がない場合はグレーの背景が表示されます。
-          -->
-          <img 
-            src="./map.jpg" 
-            alt="駅伝マップ" 
-            onerror="this.style.display='none'; document.getElementById('img-placeholder').style.display='flex';"
-            class="w-full h-auto block no-select"
-          />
-          
-          <!-- 画像読み込みエラー時のプレースホルダー -->
-          <div id="img-placeholder" class="hidden w-full h-96 bg-gray-200 flex-col items-center justify-center text-gray-500">
-            <p class="font-bold text-lg">マップ画像が見つかりません</p>
-            <p class="text-sm">フォルダ内に "map.jpg" を配置してください。</p>
+        <!-- Section Selector -->
+        <div class="p-4 border-b border-gray-100 bg-white">
+          <div class="flex flex-wrap gap-2 items-center">
+            <span class="text-sm font-semibold text-gray-700 mr-2">区間選択:</span>
+            <button onclick="zoomToSection('all')" class="section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 bg-red-600 text-white border-red-600" data-section="all">
+              全体表示
+            </button>
+            <button onclick="zoomToSection(0)" class="section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:bg-red-50" data-section="0">
+              START
+            </button>
+            <button onclick="zoomToSection(1)" class="section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:bg-red-50" data-section="1">
+              1区→2区
+            </button>
+            <button onclick="zoomToSection(2)" class="section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:bg-red-50" data-section="2">
+              2区→3区
+            </button>
+            <button onclick="zoomToSection(3)" class="section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:bg-red-50" data-section="3">
+              3区→4区
+            </button>
+            <button onclick="zoomToSection(4)" class="section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:bg-red-50" data-section="4">
+              4区→5区
+            </button>
+            <button onclick="zoomToSection(5)" class="section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:bg-red-50" data-section="5">
+              FINISH
+            </button>
           </div>
+        </div>
 
-          <!-- ピンのコンテナ -->
-          <div id="pins-layer" class="absolute inset-0 w-full h-full">
-            <!-- JSでここにピンが生成されます -->
+        <!-- Map Area -->
+        <div id="map-viewport" class="relative w-full bg-slate-100 overflow-hidden" style="height: 600px;">
+
+          <div id="map-container" class="map-container w-full h-full relative">
+            <!-- 地図画像 -->
+            <!--
+                 注意: map.jpg が index.html と同じフォルダにある必要があります。
+                 画像がない場合はグレーの背景が表示されます。
+            -->
+            <img
+              id="map-image"
+              src="./map.jpg"
+              alt="駅伝マップ"
+              onerror="this.style.display='none'; document.getElementById('img-placeholder').style.display='flex';"
+              class="w-full h-auto block no-select"
+            />
+
+            <!-- 画像読み込みエラー時のプレースホルダー -->
+            <div id="img-placeholder" class="hidden w-full h-96 bg-gray-200 flex-col items-center justify-center text-gray-500">
+              <p class="font-bold text-lg">マップ画像が見つかりません</p>
+              <p class="text-sm">フォルダ内に "map.jpg" を配置してください。</p>
+            </div>
+
+            <!-- ピンのコンテナ -->
+            <div id="pins-layer" class="absolute inset-0 w-full h-full">
+              <!-- JSでここにピンが生成されます -->
+            </div>
           </div>
 
         </div>
@@ -150,8 +188,8 @@
       const PINS = [
         {
           // 右上：スタート（大手町）
-          top: 10, 
-          left: 78, 
+          top: 10,
+          left: 78,
           title: 'スタート：大手町',
           tag: 'START',
           image: 'https://images.unsplash.com/photo-1558350277-f0c8019c4a21?auto=format&fit=crop&q=80&w=600',
@@ -159,8 +197,8 @@
         },
         {
           // 中央右寄り：鶴見中継所
-          top: 38, 
-          left: 62, 
+          top: 38,
+          left: 62,
           title: '1区→2区：鶴見中継所',
           tag: '1区 → 2区',
           image: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&q=80&w=600',
@@ -168,8 +206,8 @@
         },
         {
           // 中央：戸塚中継所
-          top: 56, 
-          left: 48, 
+          top: 56,
+          left: 48,
           title: '2区→3区：戸塚中継所',
           tag: '2区 → 3区',
           image: 'https://images.unsplash.com/photo-1535132018013-5431d3972707?auto=format&fit=crop&q=80&w=600',
@@ -177,8 +215,8 @@
         },
         {
           // 下中央：平塚中継所
-          top: 78, 
-          left: 42, 
+          top: 78,
+          left: 42,
           title: '3区→4区：平塚中継所',
           tag: '3区 → 4区',
           image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600',
@@ -186,8 +224,8 @@
         },
         {
           // 左下：小田原中継所
-          top: 72, 
-          left: 22, 
+          top: 72,
+          left: 22,
           title: '4区→5区：小田原中継所',
           tag: '4区 → 5区',
           image: 'https://images.unsplash.com/photo-1519115967240-914b4490849e?auto=format&fit=crop&q=80&w=600',
@@ -195,8 +233,8 @@
         },
         {
           // 左下奥：フィニッシュ（箱根）
-          top: 85, 
-          left: 12, 
+          top: 85,
+          left: 12,
           title: '往路フィニッシュ：芦ノ湖',
           tag: 'FINISH',
           image: 'https://images.unsplash.com/photo-1528366220965-3091b15608f4?auto=format&fit=crop&q=80&w=600',
@@ -205,9 +243,31 @@
       ];
 
       // ==========================================
+      // 🔍 区間ごとのズーム設定
+      // ==========================================
+      const SECTION_ZOOM_SETTINGS = [
+        // スタート地点周辺
+        { centerX: 78, centerY: 10, zoom: 2.5 },
+        // 鶴見中継所周辺（1区→2区）
+        { centerX: 62, centerY: 38, zoom: 2.5 },
+        // 戸塚中継所周辺（2区→3区）
+        { centerX: 48, centerY: 56, zoom: 2.5 },
+        // 平塚中継所周辺（3区→4区）
+        { centerX: 42, centerY: 78, zoom: 2.5 },
+        // 小田原中継所周辺（4区→5区）
+        { centerX: 22, centerY: 72, zoom: 2.5 },
+        // フィニッシュ地点周辺
+        { centerX: 12, centerY: 85, zoom: 2.5 }
+      ];
+
+      // ==========================================
       // 🛠️ アプリケーションロジック
       // ==========================================
-      
+
+      let currentZoom = 1;
+      let currentPanX = 0;
+      let currentPanY = 0;
+
       document.addEventListener('DOMContentLoaded', () => {
         renderPins();
       });
@@ -314,7 +374,7 @@
 
         content.classList.add('modal-exit');
         content.classList.remove('modal-enter-active');
-        
+
         requestAnimationFrame(() => {
           content.classList.add('modal-exit-active');
           content.classList.remove('modal-exit');
@@ -325,6 +385,74 @@
           backdrop.classList.add('hidden');
         }, 200);
       }
+
+      // ==========================================
+      // 🔍 区間ズーム機能
+      // ==========================================
+
+      function zoomToSection(sectionIndex) {
+        const mapContainer = document.getElementById('map-container');
+        const viewport = document.getElementById('map-viewport');
+
+        // ボタンのアクティブ状態を更新
+        updateActiveButton(sectionIndex);
+
+        if (sectionIndex === 'all') {
+          // 全体表示にリセット
+          currentZoom = 1;
+          currentPanX = 0;
+          currentPanY = 0;
+          mapContainer.style.transform = `scale(${currentZoom}) translate(${currentPanX}px, ${currentPanY}px)`;
+          return;
+        }
+
+        // 区間の設定を取得
+        const setting = SECTION_ZOOM_SETTINGS[sectionIndex];
+        if (!setting) return;
+
+        currentZoom = setting.zoom;
+
+        // ビューポートの中心に指定座標が来るように計算
+        const viewportRect = viewport.getBoundingClientRect();
+        const mapImage = document.getElementById('map-image');
+        const mapRect = mapImage.getBoundingClientRect();
+
+        // マップ上の座標（%）をピクセルに変換
+        const targetX = (setting.centerX / 100) * mapRect.width;
+        const targetY = (setting.centerY / 100) * mapRect.height;
+
+        // ズーム後のマップサイズ
+        const zoomedWidth = mapRect.width * currentZoom;
+        const zoomedHeight = mapRect.height * currentZoom;
+
+        // ビューポート中心への移動量を計算
+        const viewportCenterX = viewportRect.width / 2;
+        const viewportCenterY = viewportRect.height / 2;
+
+        // ズーム適用後の座標位置
+        const scaledTargetX = targetX * currentZoom;
+        const scaledTargetY = targetY * currentZoom;
+
+        // パン量を計算（ビューポート中心 - ターゲット位置）
+        currentPanX = (viewportCenterX - scaledTargetX) / currentZoom;
+        currentPanY = (viewportCenterY - scaledTargetY) / currentZoom;
+
+        // 変換を適用
+        mapContainer.style.transform = `scale(${currentZoom}) translate(${currentPanX}px, ${currentPanY}px)`;
+      }
+
+      function updateActiveButton(activeSection) {
+        const buttons = document.querySelectorAll('.section-btn');
+        buttons.forEach(btn => {
+          const section = btn.dataset.section;
+          if (section === String(activeSection)) {
+            btn.className = 'section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 bg-red-600 text-white border-red-600';
+          } else {
+            btn.className = 'section-btn px-4 py-2 text-xs font-bold rounded-full transition-all border-2 border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:bg-red-50';
+          }
+        });
+      }
     </script>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

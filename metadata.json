@@ -1,0 +1,5 @@
+{
+  "name": "Interactive Event Map",
+  "description": "A responsive interactive map application where users can click pins to view details about specific locations.",
+  "requestFramePermissions": []
+}
